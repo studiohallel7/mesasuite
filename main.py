@@ -312,7 +312,12 @@ else:
 if platform != 'android':
     Window.size = (380, 740)
 
-ICONS_ROOT = "assets/mobile_icons"
+# Caminho de ícones: no Android lê do storage onde o instalador fez push,
+# no PC continua usando a pasta assets/ local para desenvolvimento.
+if platform == 'android':
+    ICONS_ROOT = "/storage/emulated/0/SophiaOS/mobile_icons"
+else:
+    ICONS_ROOT = "assets/mobile_icons"
 DEFAULT_PORT = 5005
 
 CRITICAL_HOST_APPS = [
