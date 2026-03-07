@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # 📘 SOFIA MOBILE RUNTIME - OMOE NATIVE HARDWARE EDITION (FULL MERGE + DYNAMIC APPS + SCAN FIX)
 # Arquitetura: Semântica + HAL Real + JNI + Active Desktop + Micro-Universo + Dynamic Loader
-# Novidades: Lançador de Apps Internos (.appicon), Varredura de Sistema, Multitarefa Híbrida, Gestos, Wallpapers Públicos, Ícones Públicos
+# Novidades: Lançador de Apps Internos (.appicon), Varredura de Sistema, Multitarefa Híbrida, Applets Menu
 # Autor: Dono & Aurora
 # Status: FINALIZADO.
 
@@ -42,7 +42,7 @@ from kivymd.uix.menu import MDDropdownMenu
 from kivy.uix.scrollview import ScrollView
 from kivymd.uix.textfield import MDTextFieldRect, MDTextField
 from kivy.uix.modalview import ModalView
-from kivy.graphics import Color, Ellipse, Rectangle
+from kivy.graphics import Color, Ellipse, Rectangle, RoundedRectangle
 from kivy.utils import platform
 from kivy.core.clipboard import Clipboard
 from kivy.storage.jsonstore import JsonStore # Persistência
@@ -795,9 +795,8 @@ class WallpaperPicker(ModalView):
         scroll = ScrollView()
         self.grid = MDGridLayout(cols=3, adaptive_height=True, padding=dp(10), spacing=dp(10))
 
-        # Puxa o caminho da pasta pública pelo App
-        app = MDApp.get_running_app()
-        self.load_images(app.WALLPAPERS_DIR)
+        # Carrega imagens da pasta assets (Padrão)
+        self.load_images("assets")
 
         scroll.add_widget(self.grid)
         card.add_widget(scroll)
@@ -955,7 +954,7 @@ class PropertiesDialog(ModalView):
         self.state_scroll = ScrollView(size_hint_y=None, height=dp(50))
         self.state_box = BoxLayout(size_hint_x=None, spacing=dp(5))
         self.state_box.bind(minimum_width=self.state_box.setter('width'))
-        states = [("neutro", "Neutro"), ("materia_prima", "Matéria-Prima"), ("referencia", "Referência"), ("em_andamento", "Em Andamento"), ("finalizado", "Finalizado")]
+        states = [("neutro", "Neutro"), ("materia_prima", "Matéria-Prima"), ("referencia", "Em Andamento"), ("finalizado", "Finalizado")]
         current_state = self.attrs.get("state", "neutro")
         self.state_btns = []
         for s_key, s_label in states:
@@ -964,6 +963,7 @@ class PropertiesDialog(ModalView):
             self.state_box.add_widget(btn)
             self.state_btns.append((btn, s_key))
         self.state_scroll.add_widget(self.state_box)
+        card.add_widget(self.state_scroll)
         self.selected_state = current_state
         self.tags_field = MDTextField(text=", ".join(self.attrs.get("tags", [])), hint_text="Tags", mode="rectangle")
         card.add_widget(self.tags_field)
@@ -1214,6 +1214,59 @@ class RSSFeedCard(MDCard):
         anim.bind(on_complete=lambda *x: self.parent.remove_widget(self) if self.parent else None)
         anim.start(self)
 
+class AppletShelfCard(ButtonBehavior, BoxLayout):
+    applet_data = DictProperty({})
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'vertical'
+        self.size_hint = (None, None)
+        self.size = (dp(80), dp(100))
+        self.padding = dp(8)
+
+        with self.canvas.before:
+            Color(1, 1, 1, 0.1)
+            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[16])
+
+        self.bind(pos=self._update_rect, size=self._update_rect)
+
+    def _update_rect(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+
+    # O clique simples que você pediu!
+    def on_release(self):
+        app = MDApp.get_running_app()
+        app.vibrate()
+        app.open_applet_shelf_menu(self)
+
+class DesktopApplet(BoxLayout):
+    icon_name = StringProperty("application-cog")
+    label_text = StringProperty("Applet")
+    applet_data = DictProperty({})
+
+    def __init__(self, applet_data, **kwargs):
+        super().__init__(**kwargs)
+        self.applet_data = applet_data
+        self.orientation = 'vertical'
+        self.size_hint = (None, None)
+        self.size = (dp(85), dp(100))
+        self.padding = dp(5)
+        self.spacing = dp(2)
+
+        self.icon_widget = SmartIcon(icon_name=self.icon_name, icon_size=dp(48))
+        self.icon_widget.pos_hint = {'center_x': 0.5}
+
+        from kivy.uix.label import Label
+        self.label_widget = Label(
+            text=self.label_text, halign='center', valign='top',
+            font_size='12sp', color=(0.2, 0.2, 0.2, 1),
+            size_hint_y=None, height=dp(40),
+            text_size=(dp(80), None), shorten=True, shorten_from='right'
+        )
+        self.add_widget(self.icon_widget)
+        self.add_widget(self.label_widget)
+
 # ============================================================================
 # 🖱️ DESKTOP ITEM COM DRAG & DROP (FÍSICA + INTEGRAÇÃO VIGIA + GRAB FIX)
 # ============================================================================
@@ -1310,14 +1363,8 @@ class DesktopItem(ButtonBehavior, BoxLayout):
 
                 # Se já está arrastando, atualiza a posição do fantasma
                 if self._is_dragging and self._drag_avatar:
-                    self._drag_avatar.center = touch.pos
-
-                    # --- GESTO INTELIGENTE: ABRIR GAVETA ---
-                    # Se arrastar para o topo da tela, abre a Prateleira de Applets
-                    app = MDApp.get_running_app()
-                    if touch.y > Window.height - dp(100) and not app.is_shelf_open:
-                        app.toggle_top_shelf()
-                        self.vibrate_light()
+                    win_x, win_y = self.parent.to_window(touch.x, touch.y)
+                    self._drag_avatar.center = (win_x, win_y)
 
             return True
         return super().on_touch_move(touch)
@@ -1335,30 +1382,51 @@ class DesktopItem(ButtonBehavior, BoxLayout):
             # --- LÓGICA DO DROP (SOLTAR) ---
             if self._is_dragging:
                 app = MDApp.get_running_app()
-                shelf = app.root.ids.top_shelf
+                desktop_grid = app.root.ids.desktop_grid
                 dropped_on_applet = False
 
-                # 1. Verifica se soltou dentro da Gaveta (Se ela estiver aberta)
-                if app.is_shelf_open and shelf.collide_point(touch.x, touch.y):
-                    grid = app.root.ids.shelf_grid
-                    # Itera sobre os cards dos applets
-                    for applet_card in grid.children:
-                        if applet_card.collide_point(touch.x, touch.y):
-                            self._trigger_applet_action(applet_card.applet_data)
+                # 1. Verifica se soltou em cima de algum DesktopApplet (Para Executar)
+                for widget in desktop_grid.children:
+                    if isinstance(widget, DesktopApplet):
+                        if widget.collide_point(touch.x, touch.y):
+                            self._trigger_applet_action(widget.applet_data)
                             dropped_on_applet = True
                             break
 
-                # 2. A MÁGICA DA ANIMAÇÃO (Bumerangue ou Sucesso)
+                # 2. Se NÃO for applet, tenta MUDAR DE LUGAR na mesa
+                if not dropped_on_applet:
+                    alvo_reposicionamento = None
+                    for widget in desktop_grid.children:
+                        # Ignora a si mesmo e os applets
+                        if widget is not self and not isinstance(widget, DesktopApplet):
+                            if widget.collide_point(touch.x, touch.y):
+                                alvo_reposicionamento = widget
+                                break
+
+                    if alvo_reposicionamento:
+                        # A Mágica: Troca o arquivo de posição na grade do Kivy
+                        index_alvo = desktop_grid.children.index(alvo_reposicionamento)
+                        desktop_grid.remove_widget(self)
+                        desktop_grid.add_widget(self, index=index_alvo)
+
+                        # Limpa o fantasma sem fazer bumerangue (já achou a casa nova)
+                        if self._drag_avatar:
+                            app.root.remove_widget(self._drag_avatar)
+                        self._drag_avatar = None
+                        self.opacity = 1.0
+                        self._is_dragging = False
+                        self._touch_start_pos = None
+                        self.vibrate_light()
+                        return True
+
+                # 3. Animação de Sucesso no Applet ou Bumerangue se soltou no vazio
                 if dropped_on_applet:
-                    # Sucesso: O fantasma some imediatamente e a gaveta fecha
                     if self._drag_avatar:
                         app.root.remove_widget(self._drag_avatar)
                     self._drag_avatar = None
                     self.opacity = 1.0
-                    Clock.schedule_once(lambda dt: app.toggle_top_shelf(), 0.2)
-
                 else:
-                    # Falha / Desistência: O Efeito Bumerangue!
+                    # Desistência: O Efeito Bumerangue!
                     if self._drag_avatar:
                         orig_x, orig_y = self.to_window(self.x, self.y)
                         anim_return = Animation(pos=(orig_x, orig_y), d=0.4, t='out_back')
@@ -1371,8 +1439,6 @@ class DesktopItem(ButtonBehavior, BoxLayout):
 
                         anim_return.bind(on_complete=clear_ghost)
                         anim_return.start(self._drag_avatar)
-
-                        if app.is_shelf_open: app.toggle_top_shelf()
                     else:
                         self.opacity = 1.0
 
@@ -1380,7 +1446,7 @@ class DesktopItem(ButtonBehavior, BoxLayout):
                 self._touch_start_pos = None
                 return True
 
-            # Se não estava arrastando, foi um clique normal
+            # Se não estava arrastando, foi um clique normal para abrir o arquivo
             if self.collide_point(*touch.pos):
                 if not self._is_dragging:
                     self.on_release_action()
@@ -1417,12 +1483,13 @@ class DesktopItem(ButtonBehavior, BoxLayout):
         self._drag_avatar.add_widget(icon)
         self._drag_avatar.add_widget(lbl)
 
-        # Posiciona imediatamente onde está o dedo
-        self._drag_avatar.center = touch.pos
-
         # Adiciona na raiz (acima de tudo)
         app.root.add_widget(self._drag_avatar)
         self.opacity = 0.4
+
+        # Posiciona imediatamente onde está o dedo
+        win_x, win_y = self.parent.to_window(touch.x, touch.y)
+        self._drag_avatar.center = (win_x, win_y)
 
     def _trigger_applet_action(self, applet_data):
         """O Cérebro Mágico: Decide o comando e onde executar (Local vs Vigia)"""
@@ -2353,6 +2420,9 @@ class SophiaMobileApp(MDApp):
     bg_menu = None  # Menu de fundo
     mobile_applets = []
 
+    # NOVA: Guarda os applets vivos da Mesa
+    active_desktop_applets = ListProperty([])
+
     # --- TASK SWITCHER VARS ---
     is_task_switcher_open = BooleanProperty(False)
     running_internal_apps = {}
@@ -2364,8 +2434,6 @@ class SophiaMobileApp(MDApp):
     APPS_DIR = ""
     SYS_DIR = ""
     APPLETS_DIR = ""
-    WALLPAPERS_DIR = ""
-    ICONS_DIR = ""
 
     def build(self):
         # 🌟 CORREÇÃO: MODO IMERSIVO APENAS NO ANDROID
@@ -2397,36 +2465,24 @@ class SophiaMobileApp(MDApp):
 
     # --- UNIVERSO SOPHIA (FILE SYSTEM) ---
     def init_sophia_universe(self):
+        # Descobre a raiz real do aparelho (ou PC para testes)
         if platform == 'android':
             from android.storage import primary_external_storage_path
             base_dir = primary_external_storage_path()
         else:
-            base_dir = os.path.expanduser("~") 
+            base_dir = os.path.expanduser("~") # Fallback pra rodar no Linux/Windows
 
+        # Define a fronteira do nosso sistema parasita
         self.SOPHIA_ROOT = os.path.join(base_dir, "SophiaOS")
         self.MESA_DIR = os.path.join(self.SOPHIA_ROOT, "Mesa")
         self.APPS_DIR = os.path.join(self.SOPHIA_ROOT, "Aplicativos")
         self.SYS_DIR = os.path.join(self.SOPHIA_ROOT, "Sistema")
         self.APPLETS_DIR = os.path.join(self.SYS_DIR, "Applets")
-        self.WALLPAPERS_DIR = os.path.join(self.SOPHIA_ROOT, "Wallpapers")
-        
-        # --- A NOVA ROTA DOS ÍCONES ---
-        self.ICONS_DIR = os.path.join(self.SOPHIA_ROOT, "mobile_icons")
-        global ICONS_ROOT # Avisa que vamos alterar a variável global lá de cima
-        ICONS_ROOT = self.ICONS_DIR
 
-        pastas_essenciais = [self.MESA_DIR, self.APPS_DIR, self.SYS_DIR, self.APPLETS_DIR, self.WALLPAPERS_DIR, self.ICONS_DIR]
+        # O Fiat Lux! Cria o universo se ele não existir
+        pastas_essenciais = [self.MESA_DIR, self.APPS_DIR, self.SYS_DIR, self.APPLETS_DIR]
         for pasta in pastas_essenciais:
             os.makedirs(pasta, exist_ok=True)
-            
-        # Copia o wallpaper padrão do modo trancado pro modo público na 1ª vez
-        default_wp_interno = "assets/wallpaper.jpg"
-        default_wp_publico = os.path.join(self.WALLPAPERS_DIR, "wallpaper.jpg")
-        if os.path.exists(default_wp_interno) and not os.path.exists(default_wp_publico):
-            try:
-                shutil.copy2(default_wp_interno, default_wp_publico)
-            except Exception as e:
-                print(f"Erro ao copiar wallpaper padrão: {e}")
 
         print(f"🌌 Universo Sophia iniciado em: {self.SOPHIA_ROOT}")
 
@@ -2439,11 +2495,6 @@ class SophiaMobileApp(MDApp):
             saved_wp = self.store.get('display').get('wallpaper')
             if saved_wp and os.path.exists(saved_wp):
                 self.current_wallpaper = saved_wp
-        else:
-            # Se não tem nada salvo, puxa da pasta pública!
-            public_wp = os.path.join(self.WALLPAPERS_DIR, "wallpaper.jpg")
-            if os.path.exists(public_wp):
-                self.current_wallpaper = public_wp
 
         self.current_path = self.get_mesa_path()
         self.current_folder_name = os.path.basename(self.current_path)
@@ -2779,7 +2830,44 @@ class SophiaMobileApp(MDApp):
 
         Animation(height=target_height, opacity=1, d=0.4, t='out_back').start(card)
 
-    # --- LOGICA DE APPLETS (JSON) ---
+    # --- LOGICA DE APPLETS (MENU SUSPENSO) ---
+    def open_applet_shelf_menu(self, card_widget):
+        self.vibrate()
+
+        menu_items = [
+            {
+                "text": "Adicionar à Mesa",
+                "viewclass": "OneLineIconListItem",
+                "icon": "pin-outline",
+                "height": dp(56),
+                "on_release": lambda c=card_widget: self._applet_menu_callback("add", c)
+            },
+            {
+                "text": "Configurar Applet",
+                "viewclass": "OneLineIconListItem",
+                "icon": "cog-outline",
+                "height": dp(56),
+                "on_release": lambda c=card_widget: self._applet_menu_callback("config", c)
+            }
+        ]
+
+        self.applet_shelf_menu = MDDropdownMenu(
+            caller=card_widget,
+            items=menu_items,
+            width_mult=4.5,
+            radius=[16, 16, 16, 16]
+        )
+        self.applet_shelf_menu.open()
+
+    def _applet_menu_callback(self, action, card_widget):
+        self.applet_shelf_menu.dismiss()
+
+        if action == "add":
+            self.add_applet_to_desktop(card_widget.applet_data)
+        elif action == "config":
+            self.spawn_bubble(f"Ajustar: {card_widget.applet_data.get('name')}", "hammer-wrench")
+            self.toggle_top_shelf()
+
     def load_pluggable_applets(self):
         """Lê os arquivos JSON e guarda na memória do celular"""
         self.mobile_applets = []
@@ -2813,16 +2901,9 @@ class SophiaMobileApp(MDApp):
             # Só carrega os que fazem sentido ter ícone na mesa/gaveta
             if applet.get("display_on_desktop", False) or "drop_triggers" in applet:
 
-                # Cria o Card (AppletDropZone)
-                applet_card = MDCard(
-                    orientation='vertical',
-                    size_hint=(None, None),
-                    size=(dp(80), dp(100)),
-                    md_bg_color=(1, 1, 1, 0.1),
-                    radius=[16,],
-                    padding=dp(8),
-                    ripple_behavior=True
-                )
+                # Cria o Card (agora é o nosso card puro e clicável)
+                applet_card = AppletShelfCard()
+                applet_card.applet_data = applet
 
                 # Ícone do Applet
                 icon_name = applet.get("icon", "application-x-executable")
@@ -2842,11 +2923,22 @@ class SophiaMobileApp(MDApp):
 
                 applet_card.add_widget(applet_icon)
                 applet_card.add_widget(applet_label)
-
-                # Salva os dados do JSON no próprio widget dinamicamente
-                applet_card.applet_data = applet
-
                 shelf_grid.add_widget(applet_card)
+
+    def add_applet_to_desktop(self, applet_data):
+        # Impede de enchar a mesa com o mesmo applet duplicado
+        for existing in self.active_desktop_applets:
+            if existing.get("name") == applet_data.get("name"):
+                self.spawn_bubble("Este applet já está na Mesa!", "check")
+                self.toggle_top_shelf()
+                return
+
+        # Guarda na memória permanente e manda a tela atualizar
+        self.active_desktop_applets.append(applet_data)
+        self.refresh_desktop_items()
+
+        self.spawn_bubble(f"{applet_data.get('name')} fixado na Mesa!", "pin")
+        self.toggle_top_shelf() # Fecha a gaveta pra ver a mágica
 
     def set_wallpaper(self, path):
         # Atualiza a variável (o KV detecta sozinho)
@@ -2890,6 +2982,7 @@ class SophiaMobileApp(MDApp):
                 Permission.WRITE_EXTERNAL_STORAGE,
                 Permission.CAMERA,
                 Permission.VIBRATE,
+                Permission.QUERY_ALL_PACKAGES,
                 Permission.WRITE_SETTINGS,
                 Permission.ACCESS_FINE_LOCATION,
                 Permission.ACCESS_COARSE_LOCATION,
@@ -2980,7 +3073,20 @@ class SophiaMobileApp(MDApp):
 
     def refresh_desktop_items(self, items_to_show=None):
         desktop_grid = self.root.ids.desktop_grid
-        desktop_grid.clear_widgets()
+        desktop_grid.clear_widgets() # Limpa tudo
+
+        # 1. A MÁGICA SALVADORA: Desenha os Applets Fixados primeiro
+        # Só injeta na área de trabalho principal (raiz da Mesa)
+        if self.current_path == self.get_mesa_path():
+            for applet_data in self.active_desktop_applets:
+                novo_applet = DesktopApplet(
+                    applet_data=applet_data,
+                    icon_name=applet_data.get("icon", "application-cog"),
+                    label_text=applet_data.get("name", "Applet")
+                )
+                desktop_grid.add_widget(novo_applet)
+
+        # 2. Renderiza os arquivos normais da pasta (Continua igual)
         path = self.current_path
         if items_to_show is None:
             try: items_to_show = sorted(os.listdir(path))
