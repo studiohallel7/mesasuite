@@ -36,10 +36,6 @@ source.exclude_patterns =
 
 # --- VERSÃO ---
 version = 1.0
-version.regex = __version__ = ['"](.*)['"]
-version.filename = %(source.dir)s/main.py
-# Se main.py tiver __version__ = "x.y" ele puxa automaticamente
-# Caso contrário usa version = 1.0 acima
 
 # --- REQUIREMENTS ---
 # Ordem importa: dependências base primeiro
