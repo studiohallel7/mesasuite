@@ -70,16 +70,34 @@ jobs:
       # ── 8. BUILD ───────────────────────────────────────────────────────────
       - name: Compilar APK
         run: |
+          # Mostra versões para diagnóstico
+          python --version
+          java -version
+          buildozer version
+
+          # Garante que o diretório bin existe
+          mkdir -p bin
+
+          # Compila com saída completa
           buildozer -v android debug 2>&1 | tee build.log
-          echo "--- Resultado do build ---"
-          find . -name "*.apk" -type f
+
+          echo "--- Arquivos gerados ---"
+          find . -name "*.apk" -type f 2>/dev/null || echo "Nenhum APK encontrado"
+          echo "--- Conteúdo de bin/ ---"
+          ls -la bin/ || echo "bin/ vazia"
+          echo "--- Últimas 50 linhas do log ---"
+          tail -50 build.log
 
       # ── 9. SALVAR APK ──────────────────────────────────────────────────────
       - name: Salvar APK como artefato
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: SofiaMobile-APK
-          path: bin/*.apk
+          path: |
+            bin/*.apk
+            .buildozer/android/platform/build-*/dists/**/*.apk
+          if-no-files-found: warn
           retention-days: 30
 
       # ── 10. SALVAR LOG SE FALHAR ───────────────────────────────────────────
