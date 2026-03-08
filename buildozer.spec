@@ -40,7 +40,7 @@ version = 1.0
 # --- REQUIREMENTS ---
 # Ordem importa: dependências base primeiro
 requirements =
-    python3==3.11.6,
+    python3,
     kivy==2.3.0,
     kivymd==1.2.0,
     pillow==10.3.0,
