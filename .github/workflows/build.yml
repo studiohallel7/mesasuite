@@ -10,12 +10,17 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-
       # ── 1. CÓDIGO ──────────────────────────────────────────────────────────
       - name: Puxar o código do repositório
         uses: actions/checkout@v4
 
-      # ── 2. ÍCONES DO GOOGLE DRIVE ─────────────────────────────────────────
+      # ── 2. PYTHON (Corrigido: agora vem antes do download dos ícones) ──────
+      - name: Configurar Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # ── 3. ÍCONES DO GOOGLE DRIVE ─────────────────────────────────────────
       - name: Baixar ícones Colloid do Google Drive
         run: |
           pip install gdown -q
@@ -24,12 +29,6 @@ jobs:
           rm colloid.zip
           echo "✅ Ícones prontos:"
           ls mobile_icons/
-
-      # ── 3. PYTHON ──────────────────────────────────────────────────────────
-      - name: Configurar Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
 
       # ── 4. JAVA 17 ─────────────────────────────────────────────────────────
       - name: Configurar Java 17
@@ -56,7 +55,7 @@ jobs:
           pip install --upgrade pip
           pip install --upgrade buildozer "Cython==0.29.33" virtualenv
 
-      # ── 7. CACHE DO ANDROID SDK/NDK (economiza ~15min por build) ──────────
+      # ── 7. CACHE DO ANDROID SDK/NDK ────────────────────────────────────────
       - name: Cache Android SDK/NDK/p4a
         uses: actions/cache@v4
         with:
@@ -70,17 +69,11 @@ jobs:
       # ── 8. BUILD ───────────────────────────────────────────────────────────
       - name: Compilar APK
         run: |
-          # Mostra versões para diagnóstico
           python --version
           java -version
           buildozer version
-
-          # Garante que o diretório bin existe
           mkdir -p bin
-
-          # Compila com saída completa
           buildozer -v android debug 2>&1 | tee build.log
-
           echo "--- Arquivos gerados ---"
           find . -name "*.apk" -type f 2>/dev/null || echo "Nenhum APK encontrado"
           echo "--- Conteúdo de bin/ ---"
