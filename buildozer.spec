@@ -108,12 +108,12 @@ android.api = 33
 
 # ✅ LEGADOS (Android 4.1 = API 16, KitKat 4.4 = API 19)
 # API 19 = Android 4.4 KitKat (mínimo seguro e suportado pelo NDK 25b)
-android.minapi = 19
+android.minapi = 20
 
 # --- NDK / SDK ---
 android.ndk = 25b
 android.sdk = 34
-android.ndk_api = 19
+android.ndk_api = 20
 # ndk_api deve bater com minapi para compilar libs nativas compatíveis
 
 android.skip_update = False
