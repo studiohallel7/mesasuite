@@ -18,8 +18,21 @@ package.domain = org.studiohallel.sophia
 source.dir = .
 source.include_exts = py,png,jpg,jpeg,svg,kv,atlas,json,appicon,webicon,manifest,ttf,otf
 # Adicionado: svg (ícones Colloid), ttf/otf (fontes), jpeg
-source.include_patterns = assets/*, assets/**/*
-# Garante que a pasta assets/ inteira entra no APK
+
+source.include_patterns =
+    assets/*,
+    assets/**/*,
+    mobile_icons/Colloid/**/*,
+    mobile_icons/Colloid-Dark/**/*
+# ⚠️ Inclui os ícones mas NÃO o colloid.zip
+
+source.exclude_patterns =
+    mobile_icons/*.zip,
+    _fonte/*,
+    **/__pycache__/*,
+    **/*.pyc,
+    **/*.pyo
+# Zip e pasta _fonte ficam fora do APK — apenas arquivos fonte locais
 
 # --- VERSÃO ---
 version = 1.0
