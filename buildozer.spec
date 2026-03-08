@@ -21,10 +21,10 @@ source.include_exts = py,png,jpg,jpeg,svg,kv,atlas,json,appicon,webicon,manifest
 
 source.include_patterns =
     assets/*,
-    assets/**/*,
-    mobile_icons/Colloid/**/*,
-    mobile_icons/Colloid-Dark/**/*
-# ⚠️ Inclui os ícones mas NÃO o colloid.zip
+    assets/**/*
+# ✅ Ícones NÃO são empacotados no APK
+# São injetados pós-instalação via: adb push mobile_icons/. /storage/emulated/0/SophiaOS/mobile_icons
+# O main.py resolve o caminho automaticamente (externo → fallback assets)
 
 source.exclude_patterns =
     mobile_icons/*.zip,
@@ -147,19 +147,15 @@ android.foreground_service_type = dataSync
 
 # --- META-DATA (importante para launcher behavior) ---
 # Define como launcher padrão (essencial para o conceito parasita)
-android.manifest.intent_filters =
-    <intent-filter>
-        <action android:name="android.intent.action.MAIN" />
-        <category android:name="android.intent.category.LAUNCHER" />
-        <category android:name="android.intent.category.HOME" />
-        <category android:name="android.intent.category.DEFAULT" />
-    </intent-filter>
+android.manifest.intent_filters = intent_filters.xml
 # ⬆️ HOME + DEFAULT transforma o app em LAUNCHER PADRÃO
 # O Android pergunta "qual app usar como home?" — usuário escolhe Sofia
+# ⚠️ ATENÇÃO: deve ser um ARQUIVO XML, não inline — p4a abre como path
 
 # --- BACKUP ---
 android.allow_backup = True
-android.backup_rules = @xml/backup_rules
+android.backup_rules = backup_rules.xml
+# ⚠️ Deve ser um arquivo XML na raiz do projeto — p4a copia para res/xml/
 
 # --- ICONE E PRESPLASH ---
 # Descomente e coloque os arquivos em assets/ quando tiver:
