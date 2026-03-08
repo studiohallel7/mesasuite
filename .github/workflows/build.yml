@@ -62,7 +62,7 @@ jobs:
           path: |
             ~/.buildozer
             ~/.android
-          key: v2-buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          key: v3-buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
             buildozer-${{ runner.os }}-
 
