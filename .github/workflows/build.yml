@@ -64,32 +64,30 @@ jobs:
             ~/.android
           key: v4-buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
           restore-keys: |
-            buildozer-${{ runner.os }}-
-
+            v4-buildozer-${{ runner.os }}-
 
       # ── 7.5. CRIAR XMLs NECESSÁRIOS ───────────────────────────────────────
       - name: Criar intent_filters.xml e backup_rules.xml
         run: |
-          python3 -c "
-import pathlib
-pathlib.Path('intent_filters.xml').write_text(
-    '<intent-filter>\n'
-    '    <action android:name=\"android.intent.action.MAIN\" />\n'
-    '    <category android:name=\"android.intent.category.LAUNCHER\" />\n'
-    '    <category android:name=\"android.intent.category.HOME\" />\n'
-    '    <category android:name=\"android.intent.category.DEFAULT\" />\n'
-    '</intent-filter>\n'
-)
-pathlib.Path('backup_rules.xml').write_text(
-    '<?xml version=\"1.0\" encoding=\"utf-8\"?>\n'
-    '<full-backup-content>\n'
-    '    <include domain=\"file\" path=\".\" />\n'
-    '    <include domain=\"database\" path=\".\" />\n'
-    '    <include domain=\"sharedpref\" path=\".\" />\n'
-    '</full-backup-content>\n'
-)
-print('XMLs criados OK')
-"
+          cat << 'EOF' > intent_filters.xml
+          <intent-filter>
+              <action android:name="android.intent.action.MAIN" />
+              <category android:name="android.intent.category.LAUNCHER" />
+              <category android:name="android.intent.category.HOME" />
+              <category android:name="android.intent.category.DEFAULT" />
+          </intent-filter>
+          EOF
+          
+          cat << 'EOF' > backup_rules.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <full-backup-content>
+              <include domain="file" path="." />
+              <include domain="database" path="." />
+              <include domain="sharedpref" path="." />
+          </full-backup-content>
+          EOF
+          
+          echo "✅ XMLs criados com sucesso:"
           cat intent_filters.xml
           cat backup_rules.xml
 
@@ -100,7 +98,8 @@ print('XMLs criados OK')
           python --version
           java -version
           buildozer version
-          mkdir -p bin          
+          mkdir -p bin
+          
           # A mágica acontece aqui:
           export BUILDOZER_WARN_ON_ROOT=0
           buildozer -v android debug 2>&1 | tee build.log
