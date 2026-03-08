@@ -3,7 +3,7 @@
 # Arquitetura: Semântica + HAL Real + JNI + Active Desktop + Micro-Universo + Dynamic Loader
 # Novidades: Lançador de Apps Internos (.appicon), Varredura de Sistema, Multitarefa Híbrida, Applets Menu
 # Autor: Dono & Aurora
-# Status: FINALIZADO.
+
 
 import os
 import sys
