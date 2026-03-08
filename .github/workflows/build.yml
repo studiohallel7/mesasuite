@@ -70,30 +70,27 @@ jobs:
       # ── 7.5. CRIAR XMLs NECESSÁRIOS ───────────────────────────────────────
       - name: Criar intent_filters.xml e backup_rules.xml
         run: |
-          # intent_filters.xml: fragmento puro inserido dentro de <activity> pelo p4a
-          # SEM declaracao <?xml?> — apenas o <intent-filter>
-          cat > intent_filters.xml << 'XMLEOF'
-<intent-filter>
-    <action android:name="android.intent.action.MAIN" />
-    <category android:name="android.intent.category.LAUNCHER" />
-    <category android:name="android.intent.category.HOME" />
-    <category android:name="android.intent.category.DEFAULT" />
-</intent-filter>
-XMLEOF
-
-          # backup_rules.xml: XML completo
-          cat > backup_rules.xml << 'XMLEOF'
-<?xml version="1.0" encoding="utf-8"?>
-<full-backup-content>
-    <include domain="file" path="." />
-    <include domain="database" path="." />
-    <include domain="sharedpref" path="." />
-</full-backup-content>
-XMLEOF
-
-          echo "=== intent_filters.xml ==="
+          python3 -c "
+import pathlib
+pathlib.Path('intent_filters.xml').write_text(
+    '<intent-filter>\n'
+    '    <action android:name=\"android.intent.action.MAIN\" />\n'
+    '    <category android:name=\"android.intent.category.LAUNCHER\" />\n'
+    '    <category android:name=\"android.intent.category.HOME\" />\n'
+    '    <category android:name=\"android.intent.category.DEFAULT\" />\n'
+    '</intent-filter>\n'
+)
+pathlib.Path('backup_rules.xml').write_text(
+    '<?xml version=\"1.0\" encoding=\"utf-8\"?>\n'
+    '<full-backup-content>\n'
+    '    <include domain=\"file\" path=\".\" />\n'
+    '    <include domain=\"database\" path=\".\" />\n'
+    '    <include domain=\"sharedpref\" path=\".\" />\n'
+    '</full-backup-content>\n'
+)
+print('XMLs criados OK')
+"
           cat intent_filters.xml
-          echo "=== backup_rules.xml ==="
           cat backup_rules.xml
 
       # ── 8. BUILD ───────────────────────────────────────────────────────────
