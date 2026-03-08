@@ -45,7 +45,8 @@ requirements =
     kivymd==1.2.0,
     pillow==10.3.0,
     android,
-    pyjnius
+    pyjnius,
+    hostpython3==3.11.6
 # Notas:
 # - kivymd versão explícita para evitar quebra de API
 # - pyjnius explícito (estava implícito, pode falhar no build)
