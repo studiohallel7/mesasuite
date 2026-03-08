@@ -45,8 +45,7 @@ requirements =
     kivymd==1.2.0,
     pillow==10.3.0,
     android,
-    pyjnius,
-    cython==0.29.33
+    pyjnius
 # Notas:
 # - kivymd versão explícita para evitar quebra de API
 # - pyjnius explícito (estava implícito, pode falhar no build)
@@ -108,14 +107,13 @@ android.api = 33
 # Target 33 garante compatibilidade com Play Store e comportamento moderno
 
 # ✅ LEGADOS (Android 4.1 = API 16, KitKat 4.4 = API 19)
-# ⚠️ minapi 21 (seu valor anterior) EXCLUI Android 4.x completamente!
-# API 16 = Android 4.1 Jelly Bean (mínimo seguro para Kivy)
-android.minapi = 16
+# API 19 = Android 4.4 KitKat (mínimo seguro e suportado pelo NDK 25b)
+android.minapi = 19
 
 # --- NDK / SDK ---
 android.ndk = 25b
 android.sdk = 34
-android.ndk_api = 16
+android.ndk_api = 19
 # ndk_api deve bater com minapi para compilar libs nativas compatíveis
 
 android.skip_update = False
@@ -189,31 +187,3 @@ p4a.branch = develop
 log_level = 2
 warn_on_root = 0
 # warn_on_root = 0 para não travar em ambientes CI/Docker rodando como root
-
-# ==============================================================================
-# 📋 NOTAS DE BUILD
-# ==============================================================================
-#
-# PROBLEMA CONHECIDO — Android 4.x + camera2:
-#   main.py usa android.hardware.camera2.CameraManager (API 21+)
-#   Em Android 4.x isso crasha. Solução: substituir por android.hardware.Camera
-#   (a versão legada). Podemos fazer isso juntos.
-#
-# DOIS APKs vs FAT APK:
-#   Fat APK (configuração atual): ~20-30MB maior mas funciona em tudo
-#   APKs separados: armeabi-v7a para gaveta, arm64-v8a para Moto E7 Plus
-#   Para gerar separados: android.archs = armeabi-v7a (build 1)
-#                         android.archs = arm64-v8a   (build 2)
-#
-# MINAPI 16 vs MINAPI 21:
-#   API 16 = Android 4.1+ ✅ (gaveta phones)
-#   API 19 = Android 4.4+ ✅ (mais seguro, KitKat é o mais comum nos legados)
-#   API 21 = Android 5.0+ ❌ (exclui todo Android 4.x)
-#   Se quiser ser conservador sem perder muito: use minapi = 19
-#
-# PERMISSÕES NOVAS vs LEGADO:
-#   BLUETOOTH_CONNECT / BLUETOOTH_SCAN só existem em API 31+
-#   Em legados são ignoradas — o Android usa BLUETOOTH/BLUETOOTH_ADMIN
-#   Declarar as duas famílias é a prática correta (dual-stack)
-#
-# ==============================================================================
