@@ -45,8 +45,7 @@ requirements =
     kivymd==1.2.0,
     pillow==10.3.0,
     android,
-    pyjnius,
-    hostpython3==3.11.6
+    pyjnius
 # Notas:
 # - kivymd versão explícita para evitar quebra de API
 # - pyjnius explícito (estava implícito, pode falhar no build)
@@ -177,7 +176,7 @@ android.gradle_dependencies =
 # Configurações extras de compilação para suporte legado
 android.add_gradle_repositories = google(), mavenCentral()
 
-p4a.branch = develop
+p4a.branch = master
 # 'develop' em vez de 'master' — tem melhor suporte a Python 3.11 e NDK 25
 
 # ==============================================================================
