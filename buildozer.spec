@@ -129,7 +129,7 @@ android.archs = armeabi-v7a, arm64-v8a
 
 # --- ENTRY POINT ---
 android.entrypoint = org.kivy.android.PythonActivity
-android.apptheme = "@android:style/Theme.NoTitleBar"
+android.apptheme = @android:style/Theme.NoTitleBar
 
 # --- FEATURES DECLARADAS ---
 # Necessário para acesso a hardware específico
