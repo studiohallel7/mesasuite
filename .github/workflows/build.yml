@@ -3,49 +3,90 @@ name: Build Sofia Mobile APK
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     steps:
+
+      # ── 1. CÓDIGO ──────────────────────────────────────────────────────────
       - name: Puxar o código do repositório
         uses: actions/checkout@v4
 
-      - name: Baixar Ícones e Assets do Release
+      # ── 2. ÍCONES DO GOOGLE DRIVE ─────────────────────────────────────────
+      - name: Baixar ícones Colloid do Google Drive
         run: |
-          mkdir -p assets
-          wget "https://github.com/julios-ux/mesasuite/releases/download/icons/assets.zip" -O assets.zip
-          unzip -q assets.zip -d assets/
-          rm assets.zip
+          pip install gdown -q
+          gdown "1AGTvpd7IdhsREaOsS3KvnSrCEprjYQYJ" -O colloid.zip
+          unzip -q colloid.zip -d mobile_icons/
+          rm colloid.zip
+          echo "✅ Ícones prontos:"
+          ls mobile_icons/
 
-      - name: Configurar o Python
+      # ── 3. PYTHON ──────────────────────────────────────────────────────────
+      - name: Configurar Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Configurar o Java Corretamente
+      # ── 4. JAVA 17 ─────────────────────────────────────────────────────────
+      - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Instalar as bagaceiras do sistema (Dependências)
+      # ── 5. DEPENDÊNCIAS DO SISTEMA ─────────────────────────────────────────
+      - name: Instalar dependências do sistema
         run: |
-          sudo apt update
-          sudo apt install -y git zip unzip python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          sudo apt update -qq
+          sudo apt install -y \
+            git zip unzip \
+            python3-pip autoconf libtool pkg-config \
+            zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 \
+            cmake libffi-dev libssl-dev \
+            build-essential libltdl-dev \
+            libsqlite3-dev
 
+      # ── 6. BUILDOZER + CYTHON ──────────────────────────────────────────────
       - name: Instalar Buildozer e Cython
         run: |
+          pip install --upgrade pip
           pip install --upgrade buildozer "Cython==0.29.33" virtualenv
 
-      - name: Botar o bixo pra compilar
-        run: |
-          buildozer -v android debug
+      # ── 7. CACHE DO ANDROID SDK/NDK (economiza ~15min por build) ──────────
+      - name: Cache Android SDK/NDK/p4a
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            ~/.android
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
 
-      - name: Salvar o APK pronto pra tu baixar
+      # ── 8. BUILD ───────────────────────────────────────────────────────────
+      - name: Compilar APK
+        run: |
+          buildozer -v android debug 2>&1 | tee build.log
+          echo "--- Resultado do build ---"
+          find . -name "*.apk" -type f
+
+      # ── 9. SALVAR APK ──────────────────────────────────────────────────────
+      - name: Salvar APK como artefato
         uses: actions/upload-artifact@v4
         with:
           name: SofiaMobile-APK
           path: bin/*.apk
+          retention-days: 30
+
+      # ── 10. SALVAR LOG SE FALHAR ───────────────────────────────────────────
+      - name: Salvar log de erro (se falhar)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-erro
+          path: build.log
+          retention-days: 7
