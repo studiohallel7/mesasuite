@@ -314,10 +314,7 @@ if platform != 'android':
 
 # Caminho de ícones: no Android lê do storage onde o instalador fez push,
 # no PC continua usando a pasta assets/ local para desenvolvimento.
-if platform == 'android':
-    ICONS_ROOT = "/storage/emulated/0/SophiaOS/mobile_icons"
-else:
-    ICONS_ROOT = "assets/mobile_icons"
+# ICONS_ROOT agora é definido dinamicamente em init_sophia_universe()
 DEFAULT_PORT = 5005
 
 CRITICAL_HOST_APPS = [
@@ -800,8 +797,12 @@ class WallpaperPicker(ModalView):
         scroll = ScrollView()
         self.grid = MDGridLayout(cols=3, adaptive_height=True, padding=dp(10), spacing=dp(10))
 
-        # Carrega imagens da pasta assets (Padrão)
-        self.load_images("assets")
+        # Carrega wallpapers do diretório oficial do SophiaOS
+        app = MDApp.get_running_app()
+        if hasattr(app, 'WALLPAPERS_DIR') and os.path.exists(app.WALLPAPERS_DIR):
+            self.load_images(app.WALLPAPERS_DIR)
+        else:
+            self.load_images("assets")  # fallback para desenvolvimento no PC
 
         scroll.add_widget(self.grid)
         card.add_widget(scroll)
@@ -850,14 +851,17 @@ class SmartIcon(ButtonBehavior, FloatLayout):
         if value in ICON_ALIASES: targets.extend(ICON_ALIASES[value])
         if value not in targets: targets.append(value)
 
-        if not os.path.exists(ICONS_ROOT):
-             self.source_path = ""
-             return
-
+        # Pega ICONS_ROOT dinamicamente do app em execução
         app_instance = MDApp.get_running_app()
+        icons_root = app_instance.ICONS_ROOT if hasattr(app_instance, 'ICONS_ROOT') else "assets/mobile_icons"
+
+        if not os.path.exists(icons_root):
+            self.source_path = ""
+            return
+
         current_theme_style = app_instance.theme_cls.theme_style if app_instance else "Light"
         theme_folder = "Colloid-Light" if current_theme_style == "Light" else "Colloid-Dark"
-        SYMBOLIC_PATH = os.path.join(ICONS_ROOT, theme_folder, "status", "symbolic")
+        SYMBOLIC_PATH = os.path.join(icons_root, theme_folder, "status", "symbolic")
 
         for t in targets:
             icon_file = f"{t}-symbolic.png"
@@ -871,7 +875,7 @@ class SmartIcon(ButtonBehavior, FloatLayout):
                 self.source_path = full_pure
                 return
 
-        for root, dirs, files in os.walk(ICONS_ROOT):
+        for root, dirs, files in os.walk(icons_root):
             for t in targets:
                 if f"{t}.png" in files:
                     full = os.path.join(root, f"{t}.png")
@@ -2471,22 +2475,26 @@ class SophiaMobileApp(MDApp):
 
     # --- UNIVERSO SOPHIA (FILE SYSTEM) ---
     def init_sophia_universe(self):
-        # Descobre a raiz real do aparelho (ou PC para testes)
         if platform == 'android':
-            from android.storage import primary_external_storage_path
-            base_dir = primary_external_storage_path()
+            # Usa getExternalFilesDir — caminho oficial que o ADB pode escrever sem root
+            from jnius import autoclass
+            activity = autoclass('org.kivy.android.PythonActivity').mActivity
+            base_dir = activity.getExternalFilesDir(None).getAbsolutePath()
         else:
-            base_dir = os.path.expanduser("~") # Fallback pra rodar no Linux/Windows
+            base_dir = os.path.expanduser("~")
 
-        # Define a fronteira do nosso sistema parasita
-        self.SOPHIA_ROOT = os.path.join(base_dir, "SophiaOS")
-        self.MESA_DIR = os.path.join(self.SOPHIA_ROOT, "Mesa")
-        self.APPS_DIR = os.path.join(self.SOPHIA_ROOT, "Aplicativos")
-        self.SYS_DIR = os.path.join(self.SOPHIA_ROOT, "Sistema")
-        self.APPLETS_DIR = os.path.join(self.SYS_DIR, "Applets")
+        self.SOPHIA_ROOT    = os.path.join(base_dir, "SophiaOS")
+        self.MESA_DIR       = os.path.join(self.SOPHIA_ROOT, "Mesa")
+        self.APPS_DIR       = os.path.join(self.SOPHIA_ROOT, "Aplicativos")
+        self.SYS_DIR        = os.path.join(self.SOPHIA_ROOT, "Sistema")
+        self.APPLETS_DIR    = os.path.join(self.SYS_DIR, "Applets")
+        self.WALLPAPERS_DIR = os.path.join(self.SOPHIA_ROOT, "wallpapers")
+        self.ICONS_ROOT     = os.path.join(self.SOPHIA_ROOT, "mobile_icons")
 
-        # O Fiat Lux! Cria o universo se ele não existir
-        pastas_essenciais = [self.MESA_DIR, self.APPS_DIR, self.SYS_DIR, self.APPLETS_DIR]
+        pastas_essenciais = [
+            self.MESA_DIR, self.APPS_DIR, self.SYS_DIR,
+            self.APPLETS_DIR, self.WALLPAPERS_DIR, self.ICONS_ROOT
+        ]
         for pasta in pastas_essenciais:
             os.makedirs(pasta, exist_ok=True)
 
@@ -3032,8 +3040,10 @@ class SophiaMobileApp(MDApp):
         self.MESA_DIR = os.path.join(self.SOPHIA_ROOT, "Mesa")
         self.APPS_DIR = os.path.join(self.SOPHIA_ROOT, "Aplicativos")
         self.SYS_DIR = os.path.join(self.SOPHIA_ROOT, "Sistema")
-        self.APPLETS_DIR = os.path.join(self.SYS_DIR, "Applets")
-        for pasta in [self.MESA_DIR, self.APPS_DIR, self.SYS_DIR, self.APPLETS_DIR]:
+        self.APPLETS_DIR    = os.path.join(self.SYS_DIR, "Applets")
+        self.WALLPAPERS_DIR = os.path.join(self.SOPHIA_ROOT, "wallpapers")
+        self.ICONS_ROOT     = os.path.join(self.SOPHIA_ROOT, "mobile_icons")
+        for pasta in [self.MESA_DIR, self.APPS_DIR, self.SYS_DIR, self.APPLETS_DIR, self.WALLPAPERS_DIR, self.ICONS_ROOT]:
             os.makedirs(pasta, exist_ok=True)
         print(f"🌌 Universo Sophia (interno) iniciado em: {self.SOPHIA_ROOT}")
 
