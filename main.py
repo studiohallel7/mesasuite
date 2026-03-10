@@ -2994,21 +2994,32 @@ class SophiaMobileApp(MDApp):
                     print("⚠️ Permissão de storage negada. Usando diretório interno.")
                     self._init_sophia_universe_internal_fallback()
 
-            request_permissions([
+            # Nota: QUERY_ALL_PACKAGES e WRITE_SETTINGS nao sao suportados como
+            # constantes do p4a Permission. WRITE_SETTINGS usa intent especial
+            # (ja tratado em request_write_settings_permission).
+            perms = [
                 Permission.READ_EXTERNAL_STORAGE,
                 Permission.WRITE_EXTERNAL_STORAGE,
                 Permission.CAMERA,
-                Permission.VIBRATE,
-                Permission.QUERY_ALL_PACKAGES,
-                Permission.WRITE_SETTINGS,
                 Permission.ACCESS_FINE_LOCATION,
                 Permission.ACCESS_COARSE_LOCATION,
-                Permission.BLUETOOTH,
-                Permission.BLUETOOTH_ADMIN,
-                Permission.ACCESS_WIFI_STATE,
-                Permission.CHANGE_WIFI_STATE,
-                Permission.KILL_BACKGROUND_PROCESSES  # CRÍTICO PARA O TASK MANAGER
-            ], on_permissions_result)
+            ]
+            # Permissoes opcionais que podem nao existir em versoes antigas do p4a
+            optional_perm_names = [
+                'VIBRATE',
+                'BLUETOOTH',
+                'BLUETOOTH_ADMIN',
+                'ACCESS_WIFI_STATE',
+                'CHANGE_WIFI_STATE',
+                'KILL_BACKGROUND_PROCESSES',
+            ]
+            for perm_name in optional_perm_names:
+                try:
+                    perms.append(getattr(Permission, perm_name))
+                except AttributeError:
+                    print(f"Permissao nao disponivel no p4a: {perm_name}")
+
+            request_permissions(perms, on_permissions_result)
         else:
             # Fora do Android (PC/Linux), inicia normalmente sem pedir permissão
             self.init_sophia_universe()
