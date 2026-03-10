@@ -3,7 +3,7 @@
 # Arquitetura: Semântica + HAL Real + JNI + Active Desktop + Micro-Universo + Dynamic Loader
 # Novidades: Lançador de Apps Internos (.appicon), Varredura de Sistema, Multitarefa Híbrida, Applets Menu
 # Autor: Dono & Aurora
-
+# Status: FINALIZADO.
 
 import os
 import sys
@@ -312,7 +312,12 @@ else:
 if platform != 'android':
     Window.size = (380, 740)
 
-ICONS_ROOT = "assets/mobile_icons"
+# Caminho de ícones: no Android lê do storage onde o instalador fez push,
+# no PC continua usando a pasta assets/ local para desenvolvimento.
+if platform == 'android':
+    ICONS_ROOT = "/storage/emulated/0/SophiaOS/mobile_icons"
+else:
+    ICONS_ROOT = "assets/mobile_icons"
 DEFAULT_PORT = 5005
 
 CRITICAL_HOST_APPS = [
@@ -846,48 +851,32 @@ class SmartIcon(ButtonBehavior, FloatLayout):
         if value not in targets: targets.append(value)
 
         if not os.path.exists(ICONS_ROOT):
-            self.source_path = ""
-            return
+             self.source_path = ""
+             return
 
-        if not os.path.exists(ICONS_ROOT):
-            self.source_path = ""
-            return
-
-        # Tema: "Colloid" = Light, "Colloid-Dark" = Dark
         app_instance = MDApp.get_running_app()
-        current_theme = app_instance.theme_cls.theme_style if app_instance else "Light"
-        theme_folder = "Colloid" if current_theme == "Light" else "Colloid-Dark"
-
-        # Ordem de prioridade das subpastas (status primeiro — ícones de sistema)
-        SEARCH_PATHS = [
-            os.path.join(ICONS_ROOT, theme_folder, "status"),
-            os.path.join(ICONS_ROOT, theme_folder, "apps"),
-            os.path.join(ICONS_ROOT, theme_folder, "places"),
-            os.path.join(ICONS_ROOT, theme_folder, "mimetypes"),
-            os.path.join(ICONS_ROOT, theme_folder, "devices"),
-            os.path.join(ICONS_ROOT, theme_folder, "actions"),
-        ]
+        current_theme_style = app_instance.theme_cls.theme_style if app_instance else "Light"
+        theme_folder = "Colloid-Light" if current_theme_style == "Light" else "Colloid-Dark"
+        SYMBOLIC_PATH = os.path.join(ICONS_ROOT, theme_folder, "status", "symbolic")
 
         for t in targets:
-            for base in SEARCH_PATHS:
-                if not os.path.exists(base):
-                    continue
-                # Busca recursiva dentro de cada subpasta (ex: status/symbolic/)
-                for root, dirs, files in os.walk(base):
-                    for fname in (f"{t}-symbolic.png", f"{t}.png"):
-                        if fname in files:
-                            self.source_path = os.path.join(root, fname)
-                            return
+            icon_file = f"{t}-symbolic.png"
+            full_symbolic = os.path.join(SYMBOLIC_PATH, icon_file)
+            if os.path.exists(full_symbolic):
+                self.source_path = full_symbolic
+                return
+            icon_file_pure = f"{t}.png"
+            full_pure = os.path.join(SYMBOLIC_PATH, icon_file_pure)
+            if os.path.exists(full_pure):
+                self.source_path = full_pure
+                return
 
-        # Fallback: varredura completa no tema ativo
-        theme_root = os.path.join(ICONS_ROOT, theme_folder)
-        for root, dirs, files in os.walk(theme_root):
+        for root, dirs, files in os.walk(ICONS_ROOT):
             for t in targets:
-                for fname in (f"{t}-symbolic.png", f"{t}.png"):
-                    if fname in files:
-                        self.source_path = os.path.join(root, fname)
-                        return
-
+                if f"{t}.png" in files:
+                    full = os.path.join(root, f"{t}.png")
+                    self.source_path = full
+                    return
         self.source_path = ""
 
     def __init__(self, **kwargs):
@@ -2998,15 +2987,15 @@ class SophiaMobileApp(MDApp):
                 Permission.WRITE_EXTERNAL_STORAGE,
                 Permission.CAMERA,
                 Permission.VIBRATE,
-                Permission.QUERY_ALL_PACKAGES,
-                Permission.WRITE_SETTINGS,
                 Permission.ACCESS_FINE_LOCATION,
                 Permission.ACCESS_COARSE_LOCATION,
                 Permission.BLUETOOTH,
-                Permission.BLUETOOTH_ADMIN,
-                Permission.ACCESS_WIFI_STATE,
-                Permission.CHANGE_WIFI_STATE,
-                Permission.KILL_BACKGROUND_PROCESSES # CRÍTICO PARA O TASK MANAGER
+                'android.permission.QUERY_ALL_PACKAGES',
+                'android.permission.WRITE_SETTINGS',
+                'android.permission.BLUETOOTH_ADMIN',
+                'android.permission.ACCESS_WIFI_STATE',
+                'android.permission.CHANGE_WIFI_STATE',
+                'android.permission.KILL_BACKGROUND_PROCESSES' # CRÍTICO PARA O TASK MANAGER
             ])
 
     def vibrate(self):
