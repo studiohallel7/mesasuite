@@ -2461,10 +2461,11 @@ class SophiaMobileApp(MDApp):
 
         Window.bind(on_resize=self.on_window_resize)
         Window.bind(on_keyboard=self.on_keyboard)
-        self.request_android_permissions()
 
         # INICIA UNIVERSO (Define os caminhos)
-        self.init_sophia_universe()
+        # No Android, o universo só é criado DENTRO do callback de permissão,
+        # garantindo que o storage já foi autorizado antes do makedirs.
+        self.request_android_permissions()
 
         return Builder.load_string(KV)
 
@@ -2981,22 +2982,49 @@ class SophiaMobileApp(MDApp):
 
     def request_android_permissions(self):
         if platform == 'android':
-            from android.permissions import request_permissions, Permission
+            from android.permissions import request_permissions, Permission, check_permission
+
+            def on_permissions_result(permissions, grant_results):
+                """Callback chamado quando o usuário responde ao diálogo de permissões."""
+                storage_granted = check_permission(Permission.WRITE_EXTERNAL_STORAGE)
+                if storage_granted:
+                    self.init_sophia_universe()
+                else:
+                    # Permissão negada: usa diretório interno (sem cartão) como fallback
+                    print("⚠️ Permissão de storage negada. Usando diretório interno.")
+                    self._init_sophia_universe_internal_fallback()
+
             request_permissions([
                 Permission.READ_EXTERNAL_STORAGE,
                 Permission.WRITE_EXTERNAL_STORAGE,
                 Permission.CAMERA,
                 Permission.VIBRATE,
+                Permission.QUERY_ALL_PACKAGES,
+                Permission.WRITE_SETTINGS,
                 Permission.ACCESS_FINE_LOCATION,
                 Permission.ACCESS_COARSE_LOCATION,
                 Permission.BLUETOOTH,
-                'android.permission.QUERY_ALL_PACKAGES',
-                'android.permission.WRITE_SETTINGS',
-                'android.permission.BLUETOOTH_ADMIN',
-                'android.permission.ACCESS_WIFI_STATE',
-                'android.permission.CHANGE_WIFI_STATE',
-                'android.permission.KILL_BACKGROUND_PROCESSES' # CRÍTICO PARA O TASK MANAGER
-            ])
+                Permission.BLUETOOTH_ADMIN,
+                Permission.ACCESS_WIFI_STATE,
+                Permission.CHANGE_WIFI_STATE,
+                Permission.KILL_BACKGROUND_PROCESSES  # CRÍTICO PARA O TASK MANAGER
+            ], on_permissions_result)
+        else:
+            # Fora do Android (PC/Linux), inicia normalmente sem pedir permissão
+            self.init_sophia_universe()
+
+    def _init_sophia_universe_internal_fallback(self):
+        """Fallback: usa armazenamento interno do app quando storage externo é negado."""
+        from kivy.app import App
+        base_dir = App.get_running_app().user_data_dir
+        self.SOPHIA_ROOT = os.path.join(base_dir, "SophiaOS")
+        self.MESA_DIR = os.path.join(self.SOPHIA_ROOT, "Mesa")
+        self.APPS_DIR = os.path.join(self.SOPHIA_ROOT, "Aplicativos")
+        self.SYS_DIR = os.path.join(self.SOPHIA_ROOT, "Sistema")
+        self.APPLETS_DIR = os.path.join(self.SYS_DIR, "Applets")
+        for pasta in [self.MESA_DIR, self.APPS_DIR, self.SYS_DIR, self.APPLETS_DIR]:
+            os.makedirs(pasta, exist_ok=True)
+        print(f"🌌 Universo Sophia (interno) iniciado em: {self.SOPHIA_ROOT}")
 
     def vibrate(self):
         if platform == 'android':
